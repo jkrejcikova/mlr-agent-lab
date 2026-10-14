@@ -1,0 +1,16 @@
+# Shell scripts must stay LF or their shebang breaks under Git Bash.
+*.sh text eol=lf
+
+# Normalise the rest on commit; check out platform-native for editors.
+* text=auto
+
+# Binary — never line-ending converted.
+*.png binary
+*.jpg binary
+*.gif binary
+*.pdf binary
+*.npy binary
+*.npz binary
+*.parquet binary
+*.gz binary
+*.zip binary
