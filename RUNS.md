@@ -70,14 +70,39 @@ Also verified during setup, by running rather than asserting:
 | `uv add` works | `uv add --dev pytest` | installed pytest 9.1.1 |
 | Checks actually fail on bad input | (negative test, below) | exit code non-zero |
 
+### Negative test — does the checker ever fail?
+
+A green suite proves nothing unless it can go red. Added a deliberately broken
+file and an unused import:
+
+```
+=== ruff check ===   F401 `os` imported but unused      FAIL
+=== pytest ===       assert 1 == 2  → 1 failed, 1 passed FAIL
+CHECKS FAILED                                            exit code 1
+```
+
+Both defects were caught and the script exited non-zero, so `check.sh` is a
+real gate rather than a rubber stamp. Scratch files removed afterwards; `tests/`
+contains only `test_smoke.py`.
+
+### Also verified
+
+| Claim | How | Result |
+| --- | --- | --- |
+| Fresh clone reaches green with no manual steps | cloned to a temp dir, `.venv` absent, ran `check.sh` | bootstrapped `.venv`, installed 7 packages, `ALL CHECKS PASSED`, exit 0 |
+| `check.sh` works from any cwd | invoked by absolute path from `/tmp` | exit 0 (it `cd`s to the repo root itself) |
+| `check.sh` keeps LF endings after commit | `.gitattributes` `*.sh eol=lf`; inspected bytes in the clone | shebang intact, `bash -n` clean |
+
+`.gitattributes` was added because of this: git's `text=auto` default on
+Windows would have committed CRLF for `check.sh`, and a CRLF shebang breaks the
+script for the next person to clone.
+
 ### Not yet checked
 
-- `check.sh` under PowerShell (it is bash; Git Bash only so far).
-- That a fresh clone reaches green without manual steps — `uv run` bootstraps
-  `.venv`, but this was tested in a directory that already had one.
+- `check.sh` under PowerShell or cmd — it is bash. Use Git Bash.
 
 ### Follow-ups
 
 1. Replace `tests/test_smoke.py` with real tests.
 2. Get the real model id into the Model section above.
-3. Add a `.cmd`/`.ps1` wrapper for `check.sh` if PowerShell use is expected.
+3. Add a `.ps1` wrapper for `check.sh` if PowerShell use is expected.
