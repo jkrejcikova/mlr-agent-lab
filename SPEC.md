@@ -3,7 +3,9 @@
 This is the contract for the work. If a later decision contradicts this file,
 either change the file first or say why in the commit message. Draft 1 was
 written from the data analysis in `RUNS.md`, not from the lecture sheet, so
-parts of it are my own reading and are marked **Open**.
+parts of it were my own reading and marked **Open**. Draft 2 closes four of
+those, each marked **Decided** with the date and the reason; what is still open
+is listed at the end.
 
 # Goal
 
@@ -22,9 +24,9 @@ has to answer two things:
    it was not trained on? This is the honest test of whether it learned the
    species or the measuring session.
 
-**Open:** I do not know which of these two the assignment actually asks for.
-If only the first is required, the second stays as a warning in the report
-rather than a headline number.
+**Decided (interview, 2026-10-14): both.** The honest view is not a footnote, it
+is a headline number. A high random-split score that collapses on the block
+split counts as a failed result, not a successful one.
 
 # Context
 
@@ -60,12 +62,20 @@ and how the measurements were taken I do not know.
 - **Three blocks, split by decimal precision.** Rows 1-100 (1-2 dp), rows
   101-302 (5-6 dp), rows 303-518 (1-2 dp again). Blocks A and B have almost
   identical per-class means, so they are the same population.
-- **Block C is inflated inside every class** — maple height 12.3 in A/B but
-  15.4 in C, walnut width 6.4 in A/B but 8.8 in C (+34%). Because the shift
-  happens within each species, it is not a species-mix effect. It is a
-  different scale.
-- **26 repeated rows** (46 rows involved). `7.5 x 3.8 cherry` appears four
-  times, at CSV lines 304, 362, 429 and 473.
+- **Block C is inflated inside every class.** Mean value in rows 1-302 versus
+  rows 303-518, same species on both sides:
+
+  | Class | Height AB → C | Width AB → C |
+  | --- | --- | --- |
+  | maple | 12.30 → 15.41 (+25.3%) | 13.87 → 17.49 (+26.1%) |
+  | walnut | 14.18 → 16.44 (+16.0%) | 6.33 → 8.79 (+38.9%) |
+  | cherry | 8.81 → 10.12 (+14.9%) | 5.04 → 5.77 (+14.5%) |
+
+  Because the shift happens within each species, it is not a species-mix
+  effect. It is a different scale.
+- **20 rows are repeated, 46 rows take part in a repeat, 26 are extra copies.**
+  `7.5 x 3.8 cherry` appears four times. `scripts/dedup_impact.py` prints all
+  three numbers, because they are easy to confuse.
 - **One probable wrong label:** line 392, `16.9 x 21.6` marked `cherry`. At
   21.6 wide it is four times cherry's mean width.
 
@@ -82,8 +92,9 @@ model would only hide the story. Baseline first, then:
 | Decision tree | `max_depth` 1-8, `min_samples_leaf` 1-20 |
 | Random forest | `n_estimators` 100, `max_depth` 3-12, `min_samples_leaf` 1-10 |
 
-**Open:** whether the course allows scikit-learn or wants the models written by
-hand.
+**Decided (interview): scikit-learn is allowed.** It is added with
+`uv add scikit-learn` and the version is pinned in `uv.lock`, so the number a
+classmate gets is the number I got.
 
 **Test set.** Split **once, before any tuning**, stratified by class, seeded.
 The test set is then untouched until the final numbers. Nothing is fitted on
@@ -94,11 +105,35 @@ it, no scaler, no encoder, nothing. Two test views, both fixed in advance:
   (rows 303-518). This is the number that shows whether the model learned the
   species or the session.
 
-**Repeated rows.** A duplicated row must never sit in both train and test, or
-the score is inflated by the model recognising the copy. Duplicates are grouped
-by `(height, width, type)` before splitting.
+**Decided (interview): the 216 bigger-scale rows stay in the file and are used
+as the test half.** They are not deleted as a nuisance, and they are not mixed
+into training. They are the point: they are the only way to see whether the
+model generalises outside the measuring session it was trained on. After
+deduplication the two regions hold 296 training rows and 196 test rows, which
+is enough for both numbers to mean something.
 
-**Open:** whether to drop the repeats or keep them as real re-measurements.
+A coarse row does not reveal where it came from, so the shift is a hidden
+factor and not a feature the model could simply read off the numbers. Measured:
+all 202 rows with 3+ decimals are in rows 101-302, while rows 1-100 and rows
+303-518 are entirely 1-2 decimal rows. Those two coarse groups overlap
+completely in format and sit on different scales, and that is where a random
+split goes wrong: it can test on coarse rows from rows 1-100 while the rows it
+should represent are coarse rows from 303-518, and the score never shows it.
+
+**Repeated rows.** Duplicates are keyed on `(height, width, type)`.
+
+**Decided (interview): drop them, keeping one copy of each.** Measured in
+`scripts/dedup_impact.py`: 20 rows are duplicated, 46 rows take part in a
+duplicate, and keeping one copy removes 26 rows, leaving **492 of 518 (95.0%)**.
+The repeats fall in all three classes, so the largest change in class share is
+0.6 pp and the imbalance is untouched. Dropping them is cheap.
+
+The reason to drop rather than merely group them is a leak that grouping alone
+does not fix. Three duplicated triples sit on **both** sides of the block
+boundary — `16.5 x 17.0 maple`, `10.0 x 4.5 cherry`, `11.0 x 7.0 cherry`, one
+copy in each region. Deduplication removes those copies outright. The train
+script still asserts that no key appears twice across the split, so this stays
+checked rather than merely hoped for.
 
 **Metric.** Macro-averaged F1, because the classes are unbalanced and plain
 accuracy flatters the majority class. Balanced accuracy reported next to it.
@@ -120,7 +155,8 @@ without asking me anything. Concretely, these must exist:
 | --- | --- |
 | `data/leaves.csv` | the dataset, git-ignored (shared by other means) |
 | `scripts/analyze_leaves.py` | the step-1 analysis, still runs |
-| `scripts/train_leaves.py` | split, tune, evaluate; fixed seed; takes a CSV path |
+| `scripts/dedup_impact.py` | the duplicate counts above, reproducible |
+| `scripts/train_leaves.py` | dedup, split, tune, evaluate; fixed seed; takes a CSV path |
 | `results/metrics.json` | every number below, machine-readable |
 | `results/confusion_matrix.png` | final test confusion matrix, labelled |
 | `results/leaves_scatter.png` | the data plot |
@@ -143,3 +179,13 @@ Checks that must pass before I call it done:
 - no test row appears in training (assert this in code, do not assume it);
 - the report's headline numbers match `results/metrics.json`;
 - nothing from `data/` is committed to the public repo.
+
+**Still open, not decided in the interview:**
+
+- Whether slides are wanted. The assignment hints at "results, report, slides";
+  the table above has no slides in it. If they are required, they are a
+  separate deliverable and this file needs a row for them.
+- What to do with the one probable wrong label at CSV line 392 (`16.9 x 21.6`
+  marked `cherry`). It stays in the data for now, because removing a row on my
+  own judgement is a bigger change than the single row is worth; it gets
+  mentioned in the report instead.
