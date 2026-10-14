@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments & secrets — never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Virtualenvs (uv / venv)
+.venv/
+venv/
+
+# uv
+uv.lock.bak
+
+# Data & model artifacts (often large / private)
+data/
+*.csv
+*.parquet
+*.npy
+*.npz
+checkpoints/
+wandb/
+runs/
+
+# Tooling & editor
+.cache/
+.idea/
+.vscode/
+*.swp
